@@ -1,6 +1,6 @@
 @ThingsToDo_HostAddress = http://localhost:5082
 
-GET {{ThingsToDo_HostAddress}}/weatherforecast/
+GET {{ThingsToDo_HostAddress}}/todotasks/
 Accept: application/json
 
 ###
