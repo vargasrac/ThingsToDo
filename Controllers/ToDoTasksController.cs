@@ -21,11 +21,24 @@ namespace ThingsToDo.Controllers
             _context = context;
         }
 
-        // GET: api/ToDoTasks
+        #region Generated public
+        // GET: api/ToDoTasks?from=2024-10-10&to=2024-10-11
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTask()
+        public ActionResult<IEnumerable<ToDoTask>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
-            return await _context.ToDoTask.ToListAsync();
+            var filteredItems = _context.ToDoTask.AsQueryable();
+
+            if (from.HasValue)
+            {
+                filteredItems = filteredItems.Where(item => item.TimeStamp >= from.Value);
+            }
+
+            if (to.HasValue)
+            {
+                filteredItems = filteredItems.Where(item => item.TimeStamp <= to.Value);
+            }
+
+            return filteredItems.ToList();
         }
 
         // GET: api/ToDoTasks/5
@@ -99,10 +112,13 @@ namespace ThingsToDo.Controllers
 
             return NoContent();
         }
+        #endregion
 
+        #region Private
         private bool ToDoTaskExists(int id)
         {
             return _context.ToDoTask.Any(e => e.Id == id);
-        }
+        } 
+        #endregion
     }
 }

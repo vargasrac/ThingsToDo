@@ -34,5 +34,11 @@ namespace ThingsToDo.Models
         /// </summary>
         [DataType(DataType.Duration)]
         public TimeSpan? EstimatedDuration { get; set; }
-    }
+
+        /// <summary>
+        /// Creation time of the todo task
+        /// </summary>
+        [DataType(DataType.DateTime)]
+        public DateTime TimeStamp { get; set; }
+}
 }
