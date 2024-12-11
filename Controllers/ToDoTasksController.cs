@@ -44,6 +44,23 @@ namespace ThingsToDo.Controllers
             return toDoTask;
         }
 
+        // GET: api/ToDoTasks/page?pageNumber=3&pageSize=4
+        [HttpGet("page")]
+        public async Task<ActionResult<ToDoTask>> GetToDoTask(int pageNumber = 1, int pageSize = 10)
+        {
+            if (pageNumber < 1)
+            {
+                pageNumber = 1;
+            }
+
+            var toDoTasks = await _context.ToDoTask
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return Ok(toDoTasks);
+        }
+
         // GET: api/ToDoTasks/filter?from=2024-12-10&to=2024-12-11
         [HttpGet("filter")]
         public ActionResult<IEnumerable<ToDoTask>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
