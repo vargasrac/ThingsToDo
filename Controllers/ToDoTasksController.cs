@@ -21,24 +21,12 @@ namespace ThingsToDo.Controllers
             _context = context;
         }
 
-        #region Generated public
-        // GET: api/ToDoTasks?from=2024-10-10&to=2024-10-11
+        #region GET
+        // GET: api/ToDoTasks
         [HttpGet]
-        public ActionResult<IEnumerable<ToDoTask>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+        public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTask()
         {
-            var filteredItems = _context.ToDoTask.AsQueryable();
-
-            if (from.HasValue)
-            {
-                filteredItems = filteredItems.Where(item => item.TimeStamp >= from.Value);
-            }
-
-            if (to.HasValue)
-            {
-                filteredItems = filteredItems.Where(item => item.TimeStamp <= to.Value);
-            }
-
-            return filteredItems.ToList();
+            return await _context.ToDoTask.ToListAsync();
         }
 
         // GET: api/ToDoTasks/5
@@ -55,17 +43,45 @@ namespace ThingsToDo.Controllers
             return toDoTask;
         }
 
+        // GET: api/ToDoTasks/filter?from=2024-12-10&to=2024-12-11
+        [HttpGet("filter")]
+        public ActionResult<IEnumerable<ToDoTask>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+        {
+            var filteredItems = _context.ToDoTask.AsQueryable();
+
+            if (from.HasValue)
+            {
+                filteredItems = filteredItems.Where(item => item.TimeStamp >= from.Value);
+            }
+
+            if (to.HasValue)
+            {
+                filteredItems = filteredItems.Where(item => item.TimeStamp <= to.Value);
+            }
+
+            return filteredItems.ToList();
+        }
+        #endregion
+
+        #region Update
         // PUT: api/ToDoTasks/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutToDoTask(int id, ToDoTask toDoTask)
+        public async Task<IActionResult> UpdateToDoTask(int id, ToDoTask toDoTask)
         {
             if (id != toDoTask.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(toDoTask).State = EntityState.Modified;
+            var existingToDoTask = await _context.ToDoTask.FindAsync(id);
+
+            if (existingToDoTask == null)
+            {
+                return NotFound("Item not found");
+            }
+
+            existingToDoTask.Description = toDoTask.Description;
+            existingToDoTask.EstimatedDuration = toDoTask.EstimatedDuration;
 
             try
             {
@@ -86,17 +102,123 @@ namespace ThingsToDo.Controllers
             return NoContent();
         }
 
-        // POST: api/ToDoTasks
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<ToDoTask>> PostToDoTask(ToDoTask toDoTask)
+        // PUT: api/ToDoTasks/start
+        [HttpPut("start/{id}")]
+        public async Task<IActionResult> StartToDoTask(int id)
         {
+            var existingToDoTask = await _context.ToDoTask.FindAsync(id);
+
+            if (existingToDoTask == null)
+            {
+                return NotFound("Item not found");
+            }
+
+            if (existingToDoTask.StartTime != null && existingToDoTask.FinishTime == null)
+            {
+                return BadRequest("ERROR:The todo task can not be started while the time measurement is in progress");
+            }
+
+            existingToDoTask.FinishTime = null;
+            existingToDoTask.StartTime = DateTime.Now;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ToDoTaskExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        //PUT: api/ToDoTasks/start
+        [HttpPut("stop/{id}")]
+        public async Task<IActionResult> StopDoTask(int id)
+        {
+            var existingToDoTask = await _context.ToDoTask.FindAsync(id);
+
+            if (existingToDoTask == null)
+            {
+                return NotFound("Item not found");
+            }
+
+            if (existingToDoTask.StartTime == null)
+            {
+                return BadRequest("ERROR:The To-Do task cannot be stopped until timer is started");
+            }
+
+            if (existingToDoTask.FinishTime != null)
+            {
+                return BadRequest("ERROR:The To-Do task isfinished already");
+            }
+
+            existingToDoTask.FinishTime = DateTime.Now;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ToDoTaskExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+        #endregion
+
+        #region ADD
+        // POST: api/ToDoTasks
+        [HttpPost]
+        public async Task<ActionResult<ToDoTask>> AddToDoTask(ToDoTask toDoTask)
+        {
+            if (toDoTask.StartTime != null || toDoTask.FinishTime != null)
+            {
+                return BadRequest("ERROR:StartTime and FinishTime of the newly created ToDo must be null");
+            }
+
+            toDoTask.TimeStamp = DateTime.Now;
+
             _context.ToDoTask.Add(toDoTask);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetToDoTask", new { id = toDoTask.Id }, toDoTask);
         }
 
+        // POST: api/ToDoTasks/start
+        [HttpPost("start")]
+        public async Task<ActionResult<ToDoTask>> AddToDoTask()
+        {
+            var toDoTask = new ToDoTask();
+
+            toDoTask.StartTime = DateTime.Now;
+            toDoTask.Description = CreateDefaultDescription();
+            toDoTask.TimeStamp = DateTime.Now;
+
+            _context.ToDoTask.Add(toDoTask);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction("GetToDoTask", new { id = toDoTask.Id }, toDoTask);
+        }
+        #endregion
+
+        #region DELETE
         // DELETE: api/ToDoTasks/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteToDoTask(int id)
@@ -118,7 +240,12 @@ namespace ThingsToDo.Controllers
         private bool ToDoTaskExists(int id)
         {
             return _context.ToDoTask.Any(e => e.Id == id);
-        } 
+        }
+
+        private string? CreateDefaultDescription()
+        {
+            return "blabla";
+        }
         #endregion
     }
 }
