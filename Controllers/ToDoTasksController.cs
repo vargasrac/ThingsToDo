@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -65,14 +66,9 @@ namespace ThingsToDo.Controllers
 
         #region Update
         // PUT: api/ToDoTasks/5
-        [HttpPut("{id}")]
+        [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdateToDoTask(int id, ToDoTask toDoTask)
         {
-            if (id != toDoTask.Id)
-            {
-                return BadRequest();
-            }
-
             var existingToDoTask = await _context.ToDoTask.FindAsync(id);
 
             if (existingToDoTask == null)
@@ -103,7 +99,7 @@ namespace ThingsToDo.Controllers
         }
 
         // PUT: api/ToDoTasks/start
-        [HttpPut("start/{id}")]
+        [HttpPut("update/start/{id}")]
         public async Task<IActionResult> StartToDoTask(int id)
         {
             var existingToDoTask = await _context.ToDoTask.FindAsync(id);
@@ -141,7 +137,7 @@ namespace ThingsToDo.Controllers
         }
 
         //PUT: api/ToDoTasks/start
-        [HttpPut("stop/{id}")]
+        [HttpPut("update/stop/{id}")]
         public async Task<IActionResult> StopDoTask(int id)
         {
             var existingToDoTask = await _context.ToDoTask.FindAsync(id);
@@ -185,7 +181,7 @@ namespace ThingsToDo.Controllers
 
         #region ADD
         // POST: api/ToDoTasks
-        [HttpPost]
+        [HttpPost("add")]
         public async Task<ActionResult<ToDoTask>> AddToDoTask(ToDoTask toDoTask)
         {
             if (toDoTask.StartTime != null || toDoTask.FinishTime != null)
@@ -202,13 +198,13 @@ namespace ThingsToDo.Controllers
         }
 
         // POST: api/ToDoTasks/start
-        [HttpPost("start")]
+        [HttpPost("add/start")]
         public async Task<ActionResult<ToDoTask>> AddToDoTask()
         {
             var toDoTask = new ToDoTask();
 
             toDoTask.StartTime = DateTime.Now;
-            toDoTask.Description = CreateDefaultDescription();
+            toDoTask.Description  = await ProvideDefaultMessages();
             toDoTask.TimeStamp = DateTime.Now;
 
             _context.ToDoTask.Add(toDoTask);
@@ -242,10 +238,27 @@ namespace ThingsToDo.Controllers
             return _context.ToDoTask.Any(e => e.Id == id);
         }
 
-        private string? CreateDefaultDescription()
+        static async Task<string> ProvideDefaultMessages()
         {
-            return "blabla";
+            using HttpClient client = new();
+            {
+                var json = await client.GetStringAsync(
+                    "https://api.chucknorris.io/jokes/random");
+
+                if (json != null)
+                {
+                    ChuckNorrisJoke? joke = JsonSerializer.Deserialize<ChuckNorrisJoke>(json);
+                    return joke?.value ?? string.Empty;
+                }
+                return string.Empty;
+            }
         }
         #endregion
     }
+
+    public class ChuckNorrisJoke
+    {
+        public required string value { get; set; }
+    }
+
 }
