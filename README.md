@@ -54,15 +54,22 @@ Set the Startup Project to the API project.
 Press F5 to build and run the application.
 
 ## Endpoints
-ToDoTasks
 GET /api/ToDoTasks - Retrieve all tasks
+
 GET /api/ToDoTasks/{id} - Retrieve a specific task by ID
+
 GET /api/ToDoTasks/filter?from={from}&to={to} - Filter tasks by timestamps
+
 GET: api/ToDoTasks/page?pageNumber=3&pageSize=4
+
 POST /api/ToDoTasks/add - Add a new task
+
 PUT /api/ToDoTasks/update/{id} - Update an existing task by ID
+
 PUT /api/ToDoTasks/update/start/{id} - Start a task
+
 PUT /api/ToDoTasks/update/stop/{id} - Stop a task
+
 DELETE /api/ToDoTasks/{id} - Delete a task by ID
 
 ## Contributing
