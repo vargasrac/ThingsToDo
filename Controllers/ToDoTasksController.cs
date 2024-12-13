@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using ThingsToDo.BLService;
 using ThingsToDo.Data;
 using ThingsToDo.Models;
 
@@ -15,11 +18,12 @@ namespace ThingsToDo.Controllers
     [ApiController]
     public class ToDoTasksController : ControllerBase
     {
-        private readonly ToDoTaskContext _context;
+        [Required]
+        private readonly IBLService _blService;
 
-        public ToDoTasksController(ToDoTaskContext context)
+        public ToDoTasksController(IBLService bLService)
         {
-            _context = context;
+            _blService = bLService;
         }
 
         #region GET
@@ -27,57 +31,37 @@ namespace ThingsToDo.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTask()
         {
-            return await _context.ToDoTask.ToListAsync();
+            return await _blService.GetToDoTaskAll();
         }
 
         // GET: api/ToDoTasks/5
         [HttpGet("{id}")]
         public async Task<ActionResult<ToDoTask>> GetToDoTask(int id)
         {
-            var toDoTask = await _context.ToDoTask.FindAsync(id);
+            ToDoTask? toDoTasks = await _blService.GetToDoTaskById(id);
 
-            if (toDoTask == null)
+            if (toDoTasks == null)
             {
                 return NotFound();
             }
 
-            return toDoTask;
+            return toDoTasks;
         }
 
         // GET: api/ToDoTasks/page?pageNumber=3&pageSize=4
         [HttpGet("page")]
-        public async Task<ActionResult<ToDoTask>> GetToDoTask(int pageNumber = 1, int pageSize = 10)
+        public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTasksByPage(int pageNumber = 1, int pageSize = 10)
         {
-            if (pageNumber < 1)
-            {
-                pageNumber = 1;
-            }
+            var toDoTasks = await _blService.GetToDoTaskByPage(pageNumber, pageSize);
 
-            var toDoTasks = await _context.ToDoTask
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            return Ok(toDoTasks);
+            return toDoTasks;
         }
 
         // GET: api/ToDoTasks/filter?from=2024-12-10&to=2024-12-11
         [HttpGet("filter")]
-        public ActionResult<IEnumerable<ToDoTask>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+        public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
-            var filteredItems = _context.ToDoTask.AsQueryable();
-
-            if (from.HasValue)
-            {
-                filteredItems = filteredItems.Where(item => item.TimeStamp >= from.Value);
-            }
-
-            if (to.HasValue)
-            {
-                filteredItems = filteredItems.Where(item => item.TimeStamp <= to.Value);
-            }
-
-            return filteredItems.ToList();
+            return await _blService.GetToDoTaskByTimestamps(from, to);
         }
         #endregion
 
@@ -86,69 +70,33 @@ namespace ThingsToDo.Controllers
         [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdateToDoTask(int id, ToDoTask toDoTask)
         {
-            var existingToDoTask = await _context.ToDoTask.FindAsync(id);
-
-            if (existingToDoTask == null)
+            if (!await _blService.ToDoTaskExists(id))
             {
-                return NotFound("Item not found");
+                return NotFound("item not found");
             }
 
-            existingToDoTask.Description = toDoTask.Description;
-            existingToDoTask.EstimatedDuration = toDoTask.EstimatedDuration;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ToDoTaskExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            await _blService.UpdateToDoTask(id, toDoTask);
 
             return NoContent();
         }
 
         // PUT: api/ToDoTasks/start
         [HttpPut("update/start/{id}")]
-        public async Task<IActionResult> StartToDoTask(int id)
+        public async Task<IActionResult> UpdateToDoTaskStart(int id)
         {
-            var existingToDoTask = await _context.ToDoTask.FindAsync(id);
-
-            if (existingToDoTask == null)
+            if (!await _blService.ToDoTaskExists(id))
             {
-                return NotFound("Item not found");
+                return NotFound("item not found");
             }
 
-            if (existingToDoTask.StartTime != null && existingToDoTask.FinishTime == null)
+            string? errMsg = await _blService.UpdateToDoTaskStart(id);
+
+            if (errMsg != null)
             {
-                return BadRequest("ERROR:The todo task can not be started while the time measurement is in progress");
+                return BadRequest(errMsg);
             }
 
-            existingToDoTask.FinishTime = null;
-            existingToDoTask.StartTime = DateTime.Now;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ToDoTaskExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
 
             return NoContent();
         }
@@ -157,39 +105,16 @@ namespace ThingsToDo.Controllers
         [HttpPut("update/stop/{id}")]
         public async Task<IActionResult> StopDoTask(int id)
         {
-            var existingToDoTask = await _context.ToDoTask.FindAsync(id);
-
-            if (existingToDoTask == null)
+            if (!await _blService.ToDoTaskExists(id))
             {
-                return NotFound("Item not found");
+                return NotFound("item not found");
             }
 
-            if (existingToDoTask.StartTime == null)
-            {
-                return BadRequest("ERROR:The To-Do task cannot be stopped until timer is started");
-            }
+            string? errMsg = await _blService.UpdateToDoTaskStop(id);
 
-            if (existingToDoTask.FinishTime != null)
+            if (errMsg != null)
             {
-                return BadRequest("ERROR:The To-Do task isfinished already");
-            }
-
-            existingToDoTask.FinishTime = DateTime.Now;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ToDoTaskExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return BadRequest(errMsg);
             }
 
             return NoContent();
@@ -201,33 +126,23 @@ namespace ThingsToDo.Controllers
         [HttpPost("add")]
         public async Task<ActionResult<ToDoTask>> AddToDoTask(ToDoTask toDoTask)
         {
-            if (toDoTask.StartTime != null || toDoTask.FinishTime != null)
+            string? errMsg = await _blService.AddToDoTask(toDoTask);
+
+            if (errMsg != null)
             {
-                return BadRequest("ERROR:StartTime and FinishTime of the newly created ToDo must be null");
+                return BadRequest(errMsg);
             }
 
-            toDoTask.TimeStamp = DateTime.Now;
-
-            _context.ToDoTask.Add(toDoTask);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetToDoTask", new { id = toDoTask.Id }, toDoTask);
+            return CreatedAtAction("Created", null);
         }
 
         // POST: api/ToDoTasks/start
         [HttpPost("add/start")]
-        public async Task<ActionResult<ToDoTask>> AddToDoTask()
+        public async Task<ActionResult<ToDoTask>> AddToDoTaskStart()
         {
-            var toDoTask = new ToDoTask();
+            await _blService.AddToDoTaskStart();
 
-            toDoTask.StartTime = DateTime.Now;
-            toDoTask.Description  = await ProvideDefaultMessages();
-            toDoTask.TimeStamp = DateTime.Now;
-
-            _context.ToDoTask.Add(toDoTask);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetToDoTask", new { id = toDoTask.Id }, toDoTask);
+            return CreatedAtAction("GetToDoTask created", null);
         }
         #endregion
 
@@ -236,46 +151,15 @@ namespace ThingsToDo.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteToDoTask(int id)
         {
-            var toDoTask = await _context.ToDoTask.FindAsync(id);
-            if (toDoTask == null)
+            if (!await _blService.ToDoTaskExists(id))
             {
-                return NotFound();
+                return NotFound("item not found");
             }
 
-            _context.ToDoTask.Remove(toDoTask);
-            await _context.SaveChangesAsync();
+            await _blService.DeleteToDoTask(id);
 
             return NoContent();
         }
         #endregion
-
-        #region Private
-        private bool ToDoTaskExists(int id)
-        {
-            return _context.ToDoTask.Any(e => e.Id == id);
-        }
-
-        static async Task<string> ProvideDefaultMessages()
-        {
-            using HttpClient client = new();
-            {
-                var json = await client.GetStringAsync(
-                    "https://api.chucknorris.io/jokes/random");
-
-                if (json != null)
-                {
-                    ChuckNorrisJoke? joke = JsonSerializer.Deserialize<ChuckNorrisJoke>(json);
-                    return joke?.value ?? string.Empty;
-                }
-                return string.Empty;
-            }
-        }
-        #endregion
     }
-
-    public class ChuckNorrisJoke
-    {
-        public required string value { get; set; }
-    }
-
 }
