@@ -5,8 +5,6 @@ namespace ThingsToDo.BLService
 {
     public interface IBLService
     {
-        
-        string GetHello();
         Task<List<ToDoTask>> GetToDoTaskAll();
         Task<ToDoTask?> GetToDoTaskById(int id);
         Task<List<ToDoTask>> GetToDoTaskByPage(int pageNumber, int pageSize);

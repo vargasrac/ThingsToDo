@@ -16,54 +16,7 @@ namespace ThingsToDo.BLService
             _context = context;
         }
 
-        public async Task<string?> AddToDoTask(ToDoTask toDoTask)
-        {
-            if (toDoTask.StartTime != null || toDoTask.FinishTime != null)
-            {
-                return "ERROR:StartTime and FinishTime of the newly created ToDo must be null";
-            }
-
-            toDoTask.TimeStamp = DateTime.Now;
-
-            _context.ToDoTask.Add(toDoTask);
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-
-            return null;
-        }
-
-        public async Task AddToDoTaskStart()
-        {
-            var toDoTask = new ToDoTask();
-
-            toDoTask.StartTime = DateTime.Now;
-            toDoTask.Description = await ProvideDefaultMessages();
-            toDoTask.TimeStamp = DateTime.Now;
-
-            _context.ToDoTask.Add(toDoTask);
-            await _context.SaveChangesAsync();
-        }
-
-        public async Task DeleteToDoTask(int id)
-        {
-            var toDoTask = await _context.ToDoTask.FindAsync(id);
-  
-            _context.ToDoTask.Remove(toDoTask);
-            await _context.SaveChangesAsync();
-        }
-
-        public string GetHello()
-        {
-            throw new NotImplementedException();
-        }
-
+        #region GET
         public async Task<List<ToDoTask>> GetToDoTaskAll()
         {
             return await _context.ToDoTask.ToListAsync();
@@ -103,7 +56,46 @@ namespace ThingsToDo.BLService
 
             return await filteredItems.ToListAsync();
         }
+        #endregion
 
+        #region ADD
+        public async Task<string?> AddToDoTask(ToDoTask toDoTask)
+        {
+            if (toDoTask.StartTime != null || toDoTask.FinishTime != null)
+            {
+                return "ERROR:StartTime and FinishTime of the newly created ToDo must be null";
+            }
+
+            toDoTask.TimeStamp = DateTime.Now;
+
+            _context.ToDoTask.Add(toDoTask);
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            return null;
+        }
+
+        public async Task AddToDoTaskStart()
+        {
+            var toDoTask = new ToDoTask();
+
+            toDoTask.StartTime = DateTime.Now;
+            toDoTask.Description = await ProvideDefaultMessages();
+            toDoTask.TimeStamp = DateTime.Now;
+
+            _context.ToDoTask.Add(toDoTask);
+            await _context.SaveChangesAsync();
+        }
+        #endregion
+
+        #region UPDATE
         public async Task<ToDoTask?> UpdateToDoTask(int id, ToDoTask toDoTask)
         {
             var existingToDoTask = await _context.ToDoTask.FindAsync(id);
@@ -160,12 +152,26 @@ namespace ThingsToDo.BLService
 
             return null;
         }
+        #endregion
 
+        #region DELETE
+        public async Task DeleteToDoTask(int id)
+        {
+            var toDoTask = await _context.ToDoTask.FindAsync(id);
+
+            _context.ToDoTask.Remove(toDoTask);
+            await _context.SaveChangesAsync();
+        }
+        #endregion
+
+        #region General
         async Task<bool> IBLService.ToDoTaskExists(int id)
         {
             return await _context.ToDoTask.AnyAsync(e => e.Id == id);
         }
+        #endregion
 
+        #region RESTCient
         static async Task<string> ProvideDefaultMessages()
         {
             using HttpClient client = new();
@@ -181,6 +187,7 @@ namespace ThingsToDo.BLService
                 return string.Empty;
             }
         }
+        #endregion
     }
     public class ChuckNorrisJoke
     {

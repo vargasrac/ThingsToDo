@@ -31,12 +31,14 @@ namespace ThingsToDo.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTask()
         {
-            return await _blService.GetToDoTaskAll();
+            var toDoTasks = await _blService.GetToDoTaskAll();
+
+            return Ok(toDoTasks);
         }
 
         // GET: api/ToDoTasks/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<ToDoTask>> GetToDoTask(int id)
+        public async Task<ActionResult<ToDoTask?>> GetToDoTask(int id)
         {
             ToDoTask? toDoTasks = await _blService.GetToDoTaskById(id);
 
@@ -45,7 +47,7 @@ namespace ThingsToDo.Controllers
                 return NotFound();
             }
 
-            return toDoTasks;
+            return Ok(toDoTasks);
         }
 
         // GET: api/ToDoTasks/page?pageNumber=3&pageSize=4
@@ -54,14 +56,16 @@ namespace ThingsToDo.Controllers
         {
             var toDoTasks = await _blService.GetToDoTaskByPage(pageNumber, pageSize);
 
-            return toDoTasks;
+            return Ok(toDoTasks);
         }
 
         // GET: api/ToDoTasks/filter?from=2024-12-10&to=2024-12-11
         [HttpGet("filter")]
         public async Task<ActionResult<IEnumerable<ToDoTask>>> GetToDoTaskByTimestamps([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
-            return await _blService.GetToDoTaskByTimestamps(from, to);
+            var toDoTasks = await _blService.GetToDoTaskByTimestamps(from, to);
+
+            return Ok(toDoTasks);
         }
         #endregion
 
