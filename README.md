@@ -43,6 +43,8 @@ cd your-repository
 ### Restore Dependencies
 sh
 dotnet restore
+### Copy Database
+Copy the ToDoTaskContext-a59ec19e-90b6-4470-8faf-179a666455de.mdf file into the Users directory
 ### Running the Application
 Using the .NET CLI
 sh
